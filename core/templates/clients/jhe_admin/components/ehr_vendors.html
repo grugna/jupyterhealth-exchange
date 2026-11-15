@@ -9,6 +9,8 @@
         <th scope="col">Name</th>
         <th scope="col">Client ID</th>
         <th scope="col">Supported Scopes</th>
+        <th scope="col">Skip JHE Checklist</th>
+        <th scope="col">Extra Scopes</th>
       </tr>
     </thead>
     <tbody>
@@ -47,6 +49,8 @@
             {{/each}}
             </ul>
           </td>
+          <td>{{#if skipTypeChecklist}}Yes{{else}}No{{/if}}</td>
+          <td>{{extraScopes}}</td>
         </tr>
       {{/ehrVendors}}
     </tbody>
@@ -146,6 +150,37 @@
                       <label class="form-check-label" for="ehrVendorScope-{{@index}}">{{label}}</label>
                     </div>
                   {{/each}}
+                </div>
+                <div class="mb-3">
+                  <div class="form-check">
+                    <input
+                      class="form-check-input"
+                      type="checkbox"
+                      id="ehrVendorSkipTypeChecklist"
+                      {{#if ehrVendorRecord.skipTypeChecklist}}checked{{/if}}
+                    />
+                    <label class="form-check-label" for="ehrVendorSkipTypeChecklist"
+                      >Skip JHE's record-type checklist</label
+                    >
+                  </div>
+                  <div class="form-text">
+                    Tick when the EHR's own authorization screen asks the patient which record types
+                    to share (Epic). JHE then requests every supported scope. USCDI Patient Access only.
+                  </div>
+                </div>
+                <div class="mb-3">
+                  <label for="ehrVendorExtraScopes" class="form-label">Extra Scopes</label>
+                  <input
+                    type="text"
+                    class="form-control"
+                    id="ehrVendorExtraScopes"
+                    value="{{ehrVendorRecord.extraScopes}}"
+                  />
+                  <div class="form-text">
+                    Space-separated scopes requested in addition to
+                    <code>openid fhirUser launch/patient</code>, for an EHR whose sign-in or records
+                    need more (Epic: <code>profile</code>). USCDI Patient Access only.
+                  </div>
                 </div>
               </fieldset>
             </form>
