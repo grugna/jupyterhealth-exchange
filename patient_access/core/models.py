@@ -262,10 +262,11 @@ class TypeOutcome(Record):
     error: str | None = None
     capped: bool = False
     seconds: float = 0.0
+    note: str | None = None  # a fixed remark on an ok outcome (never the server's words)
 
     def reset(self) -> None:
         self.status, self.count, self.pages, self.bytes = OutcomeStatus.PENDING, 0, 0, 0
-        self.error, self.capped, self.seconds = None, False, 0.0
+        self.error, self.capped, self.seconds, self.note = None, False, 0.0, None
 
 
 # --- documents -------------------------------------------------------------------------------

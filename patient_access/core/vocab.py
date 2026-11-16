@@ -31,6 +31,12 @@ class FailureKind(StrEnum):
     CONSENT_WITHDRAWN = "consent_withdrawn"  # the host's guard refused delivery; nothing to do
 
 
+class Keep(StrEnum):
+    """Which resources of an answer a query row keeps, when not all of them."""
+
+    CCDA = "ccda"  # DocumentReferences for a C-CDA
+
+
 class TypeChoice(StrEnum):
     """Where the patient chooses which record types to share.
 

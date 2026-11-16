@@ -13,10 +13,14 @@ supplies. Document *caps* are not here: they are runtime settings the host reads
 
 from __future__ import annotations
 
+from typing import Self
+
+from pydantic import model_validator
+
 from .credentials import PUBLIC, AuthMethod
 from .models import DocumentSource, Value
 from .scopes import Access, Context, Permission, ScopeSet, constraints_of
-from .vocab import ScopeVersion, TypeChoice
+from .vocab import Keep, ScopeVersion, TypeChoice
 
 # The sign-in scopes SMART App Launch defines for a standalone patient launch; a vendor that needs
 # more gets them added by the host, never fewer.
@@ -35,6 +39,23 @@ class QuerySpec(Value):
     query: str  # "Observation?category=laboratory"; "Patient" with single=True is an instance read
     scope: str  # the patient/<Type>.read scope that gates it
     single: bool = False  # an instance read of the patient's own id (Patient)
+    # Other ways to ask for the same thing, tried in order after `query` until one answers with
+    # something the row keeps. For what vendors expose under different searches (the generated
+    # C-CDA): the row is the same everywhere and the server's answer picks the route.
+    alternatives: tuple[str, ...] = ()
+    keep: Keep | None = None  # which resources of the answer the row keeps (all, when None)
+
+    @model_validator(mode="after")
+    def _alternatives_name_what_they_keep(self) -> Self:
+        # Without `keep`, the first route that returns anything wins, which at a server that
+        # ignores an unknown filter is the whole record.
+        if self.alternatives and self.keep is None:
+            raise ValueError(f"{self.label}: a row with alternatives needs `keep`")
+        return self
+
+    @property
+    def routes(self) -> tuple[str, ...]:
+        return (self.query, *self.alternatives)
 
     @property
     def access(self) -> Access:
@@ -54,6 +75,9 @@ class DocumentProfile(Value):
     sources: frozenset[DocumentSource] = frozenset(DocumentSource)
     # Preference order when a DocumentReference offers one document in several formats.
     prefer: tuple[str, ...] = ("text/plain", "text/html", "application/pdf", "text/rtf", "application/xml")
+    # How long to wait for a document's first byte. Longer than a search's: a generated C-CDA is
+    # built when it is asked for, and Oracle Health takes 20 to 30 seconds over a large record.
+    timeout_seconds: float = 120.0
 
 
 class FetchProfile(Value):

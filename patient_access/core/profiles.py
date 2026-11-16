@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 from .source_settings import FetchProfile, QuerySpec
+from .vocab import Keep
 
-# USCDI for a patient-facing pull: one row per type (two for Observation, by category).
+# USCDI for a patient-facing pull: one row per type (two for Observation, by category; two for
+# DocumentReference: the clinical notes and the generated C-CDA).
 USCDI: tuple[QuerySpec, ...] = (
     QuerySpec(
         label="Demographics", resource_type="Patient", query="Patient", scope="patient/Patient.read", single=True
@@ -54,6 +56,23 @@ USCDI: tuple[QuerySpec, ...] = (
         label="Documents",
         resource_type="DocumentReference",
         query="DocumentReference?category=clinical-note",
+        scope="patient/DocumentReference.read",
+    ),
+    # The generated C-CDA (the patient summary every certified EHR can produce). Vendors expose
+    # it under different requests, and which one a server answers is not something its metadata
+    # reliably says, so the row carries each known spelling and the server's answer picks:
+    # Epic's own document category, then the US Core operation (Oracle Health), then the
+    # summary-of-episode document type (eClinicalWorks, athenahealth). A server that files the
+    # C-CDA among its clinical notes has already sent it in the row above.
+    QuerySpec(
+        label="Summary Documents",
+        resource_type="DocumentReference",
+        query="DocumentReference?category=summary-document",
+        alternatives=(
+            "DocumentReference/$docref",
+            "DocumentReference?type=http://loinc.org|34133-9",
+        ),
+        keep=Keep.CCDA,
         scope="patient/DocumentReference.read",
     ),
     QuerySpec(label="Encounters", resource_type="Encounter", query="Encounter", scope="patient/Encounter.read"),
