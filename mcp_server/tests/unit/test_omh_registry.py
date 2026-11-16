@@ -13,20 +13,20 @@ from jhe_mcp.omh_registry import (
     short_name,
 )
 
-# JHE's seed command, relative to this test: tests/unit -> tests -> mcp_server
-# -> <repo root>. Present in any monorepo checkout (incl. CI, which checks out
+# Where JHE lists the codes it supports, relative to this test: tests/unit -> tests ->
+# mcp_server -> <repo root>. Present in any monorepo checkout (incl. CI, which checks out
 # the full repo); absent only if the package is copied out standalone.
-_SEED_PY = Path(__file__).resolve().parents[3] / "core" / "management" / "commands" / "seed.py"
+_BOOTSTRAP_PY = Path(__file__).resolve().parents[3] / "core" / "bootstrap.py"
 
 
 def _jhe_seeded_short_names() -> set[str]:
-    """Derive JHE's authoritative supported schema codes straight from seed.py.
+    """Derive JHE's authoritative supported schema codes straight from core/bootstrap.py.
 
-    Parses the ``seed_codeable_concepts`` block of JHE's seed command rather than
-    hardcoding the set, so when JHE adds a CodeableConcept the new code is picked
-    up automatically and the coverage assertion fails until omh-shim vendors a
-    schema for it. A hardcoded list could not detect that drift (it would pass
-    while silently missing the new code).
+    Parses the ``CODEABLE_CONCEPTS`` list (what ``manage.py bootstrap`` and ``seed`` both
+    create) rather than hardcoding the set, so when JHE adds a CodeableConcept the new code
+    is picked up automatically and the coverage assertion fails until omh-shim vendors a
+    schema for it. A hardcoded list could not detect that drift (it would pass while
+    silently missing the new code).
 
     Matches both ``omh:`` and ``ieee:`` namespaced codes (JHE seeds at least one
     ``ieee:`` body schema, e.g. ``ieee:sleep-stage-summary:1.0``). Codes from
@@ -34,14 +34,14 @@ def _jhe_seeded_short_names() -> set[str]:
     ``QuestionnaireResponse`` concept — have no ``<ns>:<name>:<ver>`` shape and
     are intentionally excluded; omh-shim is not expected to serve them.
     """
-    if not _SEED_PY.exists():
-        pytest.skip(f"seed.py not found at {_SEED_PY} (drift check needs the monorepo checkout)")
-    text = _SEED_PY.read_text()
-    match = re.search(r"def seed_codeable_concepts\b.*?(?=\n    def |\Z)", text, re.DOTALL)
+    if not _BOOTSTRAP_PY.exists():
+        pytest.skip(f"bootstrap.py not found at {_BOOTSTRAP_PY} (drift check needs the monorepo checkout)")
+    text = _BOOTSTRAP_PY.read_text()
+    match = re.search(r"^CODEABLE_CONCEPTS = \[.*?^\]", text, re.DOTALL | re.MULTILINE)
     block = match.group(0) if match else ""
     codes = re.findall(r"(?:omh|ieee):[a-z0-9-]+:[0-9.]+", block)
     if not codes:
-        pytest.fail("Parsed no OMH/IEEE codes from seed_codeable_concepts; the parser is likely stale")
+        pytest.fail("Parsed no OMH/IEEE codes from CODEABLE_CONCEPTS; the parser is likely stale")
     return {short_name(c) for c in codes}
 
 
