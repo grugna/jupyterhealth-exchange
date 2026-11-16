@@ -197,7 +197,9 @@ ALREADY_DELIVERED = "already delivered under another query of this type"
 
 @dataclass
 class _Route:
-    """What one route of a row has done so far, kept even when it raises part-way."""
+    """What one route of a row has done so far, kept even when it raises part-way. A mutable
+    dataclass, not a pydantic model: counters and notes added to one page at a time, with nothing
+    to validate or serialise."""
 
     replaced: int = 0  # non-finite numbers replaced with null
     kept: int = 0  # resources the row keeps, stored now or already in the spool

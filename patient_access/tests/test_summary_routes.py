@@ -83,7 +83,7 @@ def called(url, query=None):
 
 def test_is_ccda_reads_the_document_not_the_vendor():
     assert is_ccda(ccda(1))
-    assert is_ccda(ccda(1, code="11506-3"))  # an encounter summary: the format and the XML say so
+    assert is_ccda(ccda(1, code="11506-3"))  # an encounter summary: the format code says so
     assert is_ccda({"resourceType": "DocumentReference", "type": {"coding": [{"code": "34133-9"}]}})
     # XML alone is any CDA-wrapped note
     assert not is_ccda({"resourceType": "DocumentReference", "content": [{"attachment": {"contentType": "text/xml"}}]})
