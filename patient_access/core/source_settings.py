@@ -13,12 +13,14 @@ supplies. Document *caps* are not here: they are runtime settings the host reads
 
 from __future__ import annotations
 
-from typing import Literal
+from typing import Self
+
+from pydantic import model_validator
 
 from .credentials import PUBLIC, AuthMethod
 from .models import DocumentSource, Value
 from .scopes import Access, Context, Permission, ScopeSet, constraints_of
-from .vocab import ScopeVersion, TypeChoice
+from .vocab import Keep, ScopeVersion, TypeChoice
 
 # The sign-in scopes SMART App Launch defines for a standalone patient launch; a vendor that needs
 # more gets them added by the host, never fewer.
@@ -41,7 +43,15 @@ class QuerySpec(Value):
     # something the row keeps. For what vendors expose under different searches (the generated
     # C-CDA): the row is the same everywhere and the server's answer picks the route.
     alternatives: tuple[str, ...] = ()
-    keep: Literal["ccda"] | None = None  # which resources of the answer the row keeps (all, when None)
+    keep: Keep | None = None  # which resources of the answer the row keeps (all, when None)
+
+    @model_validator(mode="after")
+    def _alternatives_name_what_they_keep(self) -> Self:
+        # Without `keep`, the first route that returns anything wins, which at a server that
+        # ignores an unknown filter is the whole record.
+        if self.alternatives and self.keep is None:
+            raise ValueError(f"{self.label}: a row with alternatives needs `keep`")
+        return self
 
     @property
     def routes(self) -> tuple[str, ...]:

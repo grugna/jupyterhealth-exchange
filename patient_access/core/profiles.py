@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from .source_settings import FetchProfile, QuerySpec
+from .vocab import Keep
 
 # USCDI for a patient-facing pull: one row per type (two for Observation, by category; two for
 # DocumentReference: the clinical notes and the generated C-CDA).
@@ -71,7 +72,7 @@ USCDI: tuple[QuerySpec, ...] = (
             "DocumentReference/$docref",
             "DocumentReference?type=http://loinc.org|34133-9",
         ),
-        keep="ccda",
+        keep=Keep.CCDA,
         scope="patient/DocumentReference.read",
     ),
     QuerySpec(label="Encounters", resource_type="Encounter", query="Encounter", scope="patient/Encounter.read"),

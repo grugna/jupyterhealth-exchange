@@ -34,10 +34,12 @@ class CappedRetry(Retry):
         return bool(super().sleep_for_retry(response))
 
 
-def session(max_retries: int = 3, backoff: float = 0.5) -> requests.Session:
+def session(max_retries: int = 3, backoff: float = 0.5, read_retries: int | None = None) -> requests.Session:
+    """`read_retries` caps retries after a read timeout (None: up to `max_retries`)."""
     s = requests.Session()
     retry = CappedRetry(
         total=max_retries,
+        read=read_retries,
         backoff_factor=backoff,
         status_forcelist=(429, 500, 502, 503, 504),
         allowed_methods=frozenset({"GET"}),  # never replay a token POST: codes are single use
