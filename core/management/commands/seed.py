@@ -13,6 +13,7 @@ from faker import Faker
 from oauth2_provider.models import get_application_model
 
 from core import bootstrap
+from core.management.commands.import_ehr_brands import DEFAULT_SAMPLE as EHR_BRANDS_SAMPLE
 from core.models import (
     JHE_FHIR_SOURCE_BASE,
     CodeableConcept,
@@ -313,7 +314,7 @@ class Command(BaseCommand):
         client_id this replaced: an operator's edits via the EHRs admin page must survive a
         reseed. Epic Production is left blank -- a production Epic app needs Epic's own
         certification/registration process, which seed can't do for an operator."""
-        epic_vendor = EhrVendor.objects.filter(name="Epic Sandbox").first()
+        epic_vendor = EhrVendor.objects.filter(name=EhrVendor.EPIC_SANDBOX).first()
         if epic_vendor and not epic_vendor.ehr_client_id:
             # Non-production client id of the Epic app "JupyterHealth Exchange - USCDI v3"
             # (appId 55446). (Same Epic sandbox app/client id used in the Phase 1 POC.)
@@ -415,9 +416,9 @@ class Command(BaseCommand):
         StudyDataSource.objects.create(study=lifespan_study_bp_hr, data_source=uscdi_ds)
 
         # Seed EHR hospital brands so the EHR Patient Portal hospital picker (#489) has data to
-        # search out of the box. Uses the curated sample bundle; production imports the
-        # full Epic file via `manage.py import_ehr_brands --file <download>`.
-        call_command("import_ehr_brands", stdout=io.StringIO())
+        # search out of the box. Uses the curated sample bundle (Epic's public sandbox and two
+        # customers); production imports the full Epic file the same way, from its download.
+        call_command("import_ehr_brands", "--file", EHR_BRANDS_SAMPLE, "--epic", stdout=io.StringIO())
         self.seed_ehr_vendor_sandbox_config()
 
         ll_patient_pete = self.create_user_with_profile("ll_patient_peter@example.com", user_type="patient")

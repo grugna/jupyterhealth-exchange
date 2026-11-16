@@ -38,11 +38,36 @@ class EhrVendor(models.Model):
         "patient/QuestionnaireResponse.read": "Questionnaire Responses",
     }
 
+    # The vendor row names code refers to. The only place runtime code spells them; migrations
+    # 0053 and 0054 repeat them, as migrations must.
+    EPIC_SANDBOX = "Epic Sandbox"
+    EPIC_PRODUCTION = "Epic Production"
+    ORACLE_HEALTH_SANDBOX = "Oracle Health Sandbox"
+    ORACLE_HEALTH_PRODUCTION = "Oracle Health Production"
+
     # What USCDI Patient Access needs set on an Epic row: Epic's own authorization screen asks the
     # patient which record types to share and ignores a narrower request, and `profile` is the
-    # sign-in scope JHE has always sent Epic. The 0053 migration sets these on existing Epic rows;
-    # import_ehr_brands sets them on the Epic rows it creates.
+    # sign-in scope JHE has always sent Epic.
     EPIC_DEFAULTS = {"skip_type_checklist": True, "extra_scopes": "profile"}
+    # What it needs set on an Oracle Health (Cerner Millennium) row: Millennium serves a document's
+    # content only to a token that also carries patient/Binary.read.
+    ORACLE_HEALTH_DEFAULTS = {"extra_scopes": "patient/Binary.read"}
+    # The settings a row gets when bootstrap or import_ehr_brands creates it, by the row's name;
+    # migrations 0053 and 0054 set the same on rows that already existed. Defaults only: an
+    # operator's edits on the EHRs admin page always win. This is for a deviation every deployment
+    # of that vendor shares; anything particular to one deployment is set on its row instead, so
+    # keep this list short. A row under any other name starts with none.
+    DEFAULTS_BY_NAME = {
+        EPIC_SANDBOX: EPIC_DEFAULTS,
+        EPIC_PRODUCTION: EPIC_DEFAULTS,
+        ORACLE_HEALTH_SANDBOX: ORACLE_HEALTH_DEFAULTS,
+        ORACLE_HEALTH_PRODUCTION: ORACLE_HEALTH_DEFAULTS,
+    }
+
+    @classmethod
+    def defaults_for(cls, name: str) -> dict:
+        """The sign-in settings a new row named `name` starts with (see DEFAULTS_BY_NAME)."""
+        return dict(cls.DEFAULTS_BY_NAME.get(name, {}))
 
     name = models.CharField(unique=True)
     ehr_client_id = models.CharField(null=True, blank=True)

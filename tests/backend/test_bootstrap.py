@@ -39,6 +39,13 @@ class TestFreshDatabase:
         assert set(EhrVendor.objects.values_list("name", flat=True)) == set(bootstrap.EHR_VENDORS)
         assert all(v.ehr_client_id in (None, "") for v in EhrVendor.objects.all())
 
+    def test_epic_rows_get_epics_sign_in_settings_and_the_import_after_keeps_them(self):
+        """The rows exist before any import, so the import's own defaults would never reach them."""
+        run()
+        call_command("import_ehr_brands", "--file", "core/data/ehr_brands.sample.json", "--epic", stdout=io.StringIO())
+        for vendor in EhrVendor.objects.all():
+            assert (vendor.skip_type_checklist, vendor.extra_scopes) == (True, "profile"), vendor.name
+
     def test_no_invite_code_is_set(self):
         """The row exists, empty, for an admin to fill in. (That an empty code closes
         registration is the form's behaviour, tested with it.)"""
@@ -118,3 +125,5 @@ class TestRerun:
         assert Application.objects.filter(name=bootstrap.ADMIN_UI_APPLICATION).count() == 1
         assert JheUser.objects.filter(email="manager_mary@example.com").exists()
         assert JheSetting.objects.get(key="site.registration_invite_code").get_value() == "jhe"
+        for vendor in EhrVendor.objects.all():
+            assert (vendor.skip_type_checklist, vendor.extra_scopes) == (True, "profile"), vendor.name
