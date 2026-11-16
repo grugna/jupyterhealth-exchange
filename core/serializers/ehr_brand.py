@@ -22,13 +22,21 @@ class EhrBrandSerializer(serializers.ModelSerializer):
 
 class EhrVendorListSerializer(serializers.ModelSerializer):
     # The vendor list (thousands of brands/locations nested under some vendors) is expensive to
-    # serialize and unused by the list table, which only shows name/client id/scopes -- brands
+    # serialize and unused by the list table, which only shows name/client id/scopes/sign-in settings -- brands
     # are fetched separately, per vendor, by EhrVendorSerializer on the detail view.
     name = serializers.CharField()
 
     class Meta:
         model = EhrVendor
-        fields = ["id", "name", "ehr_client_id", "supported_scopes", "last_updated"]
+        fields = [
+            "id",
+            "name",
+            "ehr_client_id",
+            "supported_scopes",
+            "skip_type_checklist",
+            "extra_scopes",
+            "last_updated",
+        ]
         read_only_fields = ["id", "last_updated"]
 
 
@@ -39,5 +47,14 @@ class EhrVendorSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = EhrVendor
-        fields = ["id", "name", "ehr_client_id", "supported_scopes", "brands", "last_updated"]
+        fields = [
+            "id",
+            "name",
+            "ehr_client_id",
+            "supported_scopes",
+            "skip_type_checklist",
+            "extra_scopes",
+            "brands",
+            "last_updated",
+        ]
         read_only_fields = ["id", "brands", "last_updated"]

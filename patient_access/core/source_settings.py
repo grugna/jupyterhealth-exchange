@@ -6,8 +6,9 @@
 
 Vendor knowledge (the profile, the scope version, the methods the vendor accepts) is the same in
 every deployment and lives in code (`vendors.py`, `profiles.py`). The deployment's part is the
-client id, which the host's directory supplies. Document *caps* are not here: they are runtime
-settings the host reads once per attempt (`settings.py`).
+client id, the scopes added to `BASE_SCOPES` and the type choice, which the host's directory
+supplies. Document *caps* are not here: they are runtime settings the host reads once per attempt
+(`settings.py`).
 """
 
 from __future__ import annotations
@@ -16,6 +17,10 @@ from .credentials import PUBLIC, AuthMethod
 from .models import DocumentSource, Value
 from .scopes import Access, Context, Permission, ScopeSet, constraints_of
 from .vocab import ScopeVersion, TypeChoice
+
+# The sign-in scopes SMART App Launch defines for a standalone patient launch; a vendor that needs
+# more gets them added by the host, never fewer.
+BASE_SCOPES: tuple[str, ...] = ("openid", "fhirUser", "launch/patient")
 
 
 def to_v2(scope: str) -> str:
@@ -74,7 +79,7 @@ class ClientRegistration(Value):
     vendor: str
     client_id: str
     methods: tuple[AuthMethod, ...] = (PUBLIC,)  # preference order
-    base_scopes: tuple[str, ...] = ("openid", "fhirUser", "launch/patient")
+    base_scopes: tuple[str, ...] = BASE_SCOPES
     scope_version: ScopeVersion = ScopeVersion.V1
 
     def spelled(self, scope: str) -> str:
