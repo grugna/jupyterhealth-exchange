@@ -100,7 +100,8 @@ def import_brands_bundle(bundle):
     def _vendor_for(org):
         name = "Epic Sandbox" if "sandbox" in (org.get("name") or "").lower() else "Epic Production"
         if name not in vendor_cache:
-            vendor_cache[name], _ = EhrVendor.objects.get_or_create(name=name)
+            # Defaults on create only: an operator's edits via the EHRs admin page survive a re-import.
+            vendor_cache[name], _ = EhrVendor.objects.get_or_create(name=name, defaults=EhrVendor.EPIC_DEFAULTS)
         return vendor_cache[name]
 
     brand_by_org_id = {}  # source Organization id -> EhrBrand

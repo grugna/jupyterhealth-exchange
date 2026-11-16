@@ -38,9 +38,27 @@ class EhrVendor(models.Model):
         "patient/QuestionnaireResponse.read": "Questionnaire Responses",
     }
 
+    # What USCDI Patient Access needs set on an Epic row: Epic's own authorization screen asks the
+    # patient which record types to share and ignores a narrower request, and `profile` is the
+    # sign-in scope JHE has always sent Epic. The 0053 migration sets these on existing Epic rows;
+    # import_ehr_brands sets them on the Epic rows it creates.
+    EPIC_DEFAULTS = {"skip_type_checklist": True, "extra_scopes": "profile"}
+
     name = models.CharField(unique=True)
     ehr_client_id = models.CharField(null=True, blank=True)
     supported_scopes = models.TextField(null=True, blank=True)
+    # USCDI Patient Access only (the EHR Patient Portal does not read these).
+    skip_type_checklist = models.BooleanField(
+        default=False,
+        help_text="The EHR's own authorization screen asks the patient which record types to share, so JHE "
+        "skips its checklist and requests every supported scope (Epic).",
+    )
+    extra_scopes = models.TextField(
+        blank=True,
+        default="",
+        help_text="Space-separated scopes requested in addition to openid fhirUser launch/patient, for an "
+        "EHR whose sign-in or records need more (Epic: profile).",
+    )
     last_updated = models.DateTimeField(auto_now=True)
 
     def __str__(self):
