@@ -229,10 +229,40 @@ Entities are based on the [HL7 FHIR model](https://build.fhir.org/), a widely us
 
 ## Running in Production
 
+### Health check
+
 `GET /health` is the liveness probe: no database, no auth, and it answers whatever Host header
 the probe carries (a load balancer sends the container's own IP address), so it can be the
 target of an ALB, Fly or Kubernetes check as is. It returns `{"status": "ok", "version": "<JHE
 version>"}` with status 200.
+
+### Encrypting the hop from the load balancer to the container
+
+A load balancer that terminates HTTPS normally forwards to the container over plain HTTP
+inside the private network. For data that must be encrypted in transit on every hop, the
+container can terminate TLS itself, so the load balancer re-encrypts to it:
+
+    JHE_TLS=self-signed     the container issues its own certificate at start; nothing to provision
+    JHE_TLS=provided        a certificate you mount, named by JHE_TLS_CERTFILE and JHE_TLS_KEYFILE
+
+Point the load balancer's target and health check at the container's port over HTTPS. The
+MCP server's `MCP_TLS` works the same way (see `mcp_server/README.md`).
+
+What this gives you: the traffic between the load balancer and the container is encrypted,
+and that does not depend on who signed the certificate. The session key comes from an
+ephemeral key exchange, so a capture of that traffic yields nothing, and a certificate from a
+CA would not change that.
+
+What it does not give you: proof of the container's identity. Load balancers that re-encrypt
+to their targets generally do not validate the target's certificate (an AWS Application Load
+Balancer does not, and has no setting for it; check yours). On that hop the network vouches
+for the container: the load balancer connects to the address the orchestrator registered for
+it, on a private network the platform controls. If your policy requires a CA-issued
+certificate, use `provided`; it satisfies the policy without changing what the hop protects.
+
+The self-signed certificate is valid for ten years. Its key is created when the container
+starts and dies with it, so the validity period limits nothing; it is long so that a task
+that runs for months never presents an expired certificate to anything that checks.
 
 ## Contributing
 
