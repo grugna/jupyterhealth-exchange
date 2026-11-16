@@ -94,6 +94,15 @@ def test_superuser_can_create(superuser_client):
     assert EhrVendor.objects.filter(name="Cerner", ehr_client_id="cerner-client-id").exists()
 
 
+def test_superuser_can_set_the_sign_in_settings(superuser_client, vendor):
+    r = superuser_client.patch(f"{URL}/{vendor.id}", {"skipTypeChecklist": True, "extraScopes": "profile"})
+    assert r.status_code == 200, r.text
+    vendor.refresh_from_db()
+    assert vendor.skip_type_checklist is True and vendor.extra_scopes == "profile"
+    row = next(row for row in superuser_client.get(URL).json()["results"] if row["id"] == vendor.id)
+    assert row["skipTypeChecklist"] is True and row["extraScopes"] == "profile"
+
+
 def test_superuser_can_update(superuser_client, vendor):
     r = superuser_client.patch(f"{URL}/{vendor.id}", {"ehrClientId": "rotated-client-id"})
     assert r.status_code == 200, r.text

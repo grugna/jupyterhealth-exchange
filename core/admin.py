@@ -318,7 +318,7 @@ class ClientDataSourceAdmin(admin.ModelAdmin):
 
 @admin.register(EhrVendor)
 class EhrVendorAdmin(admin.ModelAdmin):
-    list_display = ("name", "ehr_client_id", "id")
+    list_display = ("name", "ehr_client_id", "skip_type_checklist", "extra_scopes", "id")
     search_fields = ("name",)
 
 

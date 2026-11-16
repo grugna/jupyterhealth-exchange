@@ -122,6 +122,18 @@ def test_production_and_sandbox_brands_share_only_their_own_vendor(db):
     assert EhrVendor.objects.count() == 2
 
 
+def test_new_epic_rows_get_epics_sign_in_settings_and_a_reimport_keeps_an_operators_edits(db):
+    bundle = json.loads(Path(DEFAULT_SAMPLE).read_text(encoding="utf-8"))
+    import_brands_bundle(bundle)
+    for vendor in EhrVendor.objects.all():
+        assert vendor.skip_type_checklist is True and vendor.extra_scopes == "profile"
+
+    EhrVendor.objects.filter(name="Epic Production").update(skip_type_checklist=False, extra_scopes="")
+    import_brands_bundle(bundle)
+    production = EhrVendor.objects.get(name="Epic Production")
+    assert production.skip_type_checklist is False and production.extra_scopes == ""
+
+
 def test_import_is_idempotent(db):
     import_brands_bundle(_bundle())
     import_brands_bundle(_bundle())

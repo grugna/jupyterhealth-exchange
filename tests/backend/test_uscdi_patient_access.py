@@ -51,6 +51,7 @@ from patient_access.core.models import JobStatus
 from patient_access.core.pipeline import DeliveryRefused
 from patient_access.core.settings import DEFAULT_LAYOUT
 from patient_access.core.smart import clear_discovery_cache
+from patient_access.core.vocab import TypeChoice
 from patient_access.django_app.models import AuthAttemptRecord, JobRecord
 from patient_access.django_app.wiring import get_module
 
@@ -228,8 +229,7 @@ def test_the_page_serves_the_shell_and_redeems_nothing_itself(world, module_on):
     assert PatientInvitation.objects.get(id=invitation.id).status == PatientInvitation.Status.ISSUED
     config = r.context["config"]
     assert config["available"] is True and config["allowHttpSignIn"] is False
-    assert config["typeChoiceByVendor"]["Epic Sandbox"] == "ehr"
-    assert config["typeChoiceByVendor"]["SMART Sandbox"] == "host"
+    assert config["typeChoiceByVendor"] == {"SMART Sandbox": "host"}
     assert not r.cookies  # no Django session, no CSRF cookie
 
 
@@ -350,7 +350,10 @@ def test_launch_requests_every_type_when_the_vendors_own_screen_asks(world, modu
     """Epic lists every registered category on its screen whatever we request, so the checklist
     is skipped for it and a subset sent anyway is ignored: nothing is declined on our side."""
     epic = EhrVendor.objects.create(
-        name="Epic Sandbox", ehr_client_id="epic-1", supported_scopes="patient/Patient.read patient/Observation.read"
+        name="Epic Sandbox",
+        ehr_client_id="epic-1",
+        supported_scopes="patient/Patient.read patient/Observation.read",
+        **EhrVendor.EPIC_DEFAULTS,
     )
     EhrBrand.objects.filter(id=world["location"].brand_id).update(vendor=epic)
     authorize_url(launch(patient_browser(world), world, scopes=("patient/Observation.read",)))
@@ -689,6 +692,19 @@ def test_the_directory_maps_vendor_rows_to_the_registry(world):
         directory.settings_for(selection.endpoint)
     with pytest.raises(KeyError):
         directory.selection("99999")
+
+
+def test_the_directory_takes_the_sign_in_settings_from_the_vendor_row(world):
+    """What a vendor's sign-in needs is set on its row, whatever the row is called."""
+    EhrVendor.objects.update(name="Some Other EHR", skip_type_checklist=True, extra_scopes="profile")
+    directory = JheOrmDirectory()
+    settings = directory.settings_for(directory.selection(str(world["location"].id)).endpoint)
+    assert settings.registration.client_id == "client-1" and settings.fetch.name == "uscdi"
+    assert settings.registration.base_scopes == ("openid", "fhirUser", "launch/patient", "profile")
+    assert settings.type_choice is TypeChoice.EHR
+    assert JheOrmDirectory.type_choice("Some Other EHR") is TypeChoice.EHR
+    assert JheOrmDirectory.type_choices() == {"Some Other EHR": TypeChoice.EHR}
+    assert JheOrmDirectory.type_choice("No Such Row") is TypeChoice.HOST
 
 
 def test_the_delivery_guard_refuses_after_consent_is_withdrawn(world, module_on, ehr):

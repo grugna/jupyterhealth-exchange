@@ -229,6 +229,13 @@ Entities are based on the [HL7 FHIR model](https://build.fhir.org/), a widely us
 
 ## Running in Production
 
+### Health check
+
+`GET /health` is the liveness probe: no database, no auth, and it answers whatever Host header
+the probe carries (a load balancer sends the container's own IP address), so it can be the
+target of an ALB, Fly or Kubernetes check as is. It returns `{"status": "ok", "version": "<JHE
+version>"}` with status 200.
+
 ### Encrypting the hop from the load balancer to the container
 
 A load balancer that terminates HTTPS normally forwards to the container over plain HTTP

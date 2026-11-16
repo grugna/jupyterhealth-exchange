@@ -144,6 +144,9 @@ class FhirClient:
         self.expires_at = expires_at
         self.clock = clock
         self.http = http or http_session(profile.max_retries)
+        # Document downloads get no read retries: a stuck on-demand C-CDA would otherwise hold the
+        # worker for (retries + 1) x the document timeout and run the token out.
+        self.document_http = http or http_session(profile.max_retries, read_retries=0)
         self.lease = lease
         self.policy = policy
         self._origin = origin(self.base)
@@ -161,7 +164,15 @@ class FhirClient:
         full = url if "://" in url else f"{self.base}/{url.lstrip('/')}"
         return self.policy.check(full)
 
-    def _get(self, url: str, params: Mapping[str, str] | None, accept: str, stream: bool) -> requests.Response:
+    def _get(
+        self,
+        url: str,
+        params: Mapping[str, str] | None,
+        accept: str,
+        stream: bool,
+        timeout: float | None = None,
+        http: requests.Session | None = None,
+    ) -> requests.Response:
         """One GET with the token, following redirects itself: each hop passes the policy, and the
         token stays behind when the host changes or https drops to http."""
         full = self.absolute(url)
@@ -169,11 +180,11 @@ class FhirClient:
         headers: dict[str, str] = {**self._auth, "Accept": accept}
         for _ in range(MAX_REDIRECTS + 1):
             self.requests += 1
-            r = self.http.get(
+            r = (http or self.http).get(
                 full,
                 params=params,
                 headers=headers,
-                timeout=self.profile.timeout_seconds,
+                timeout=timeout if timeout is not None else self.profile.timeout_seconds,
                 stream=stream,
                 allow_redirects=False,
             )
@@ -199,7 +210,9 @@ class FhirClient:
 
     def stream(self, url: str, accept: str) -> requests.Response:
         """A streamed GET for document content. The caller closes the response."""
-        return self._get(url, None, accept, stream=True)
+        return self._get(
+            url, None, accept, stream=True, timeout=self.profile.documents.timeout_seconds, http=self.document_http
+        )
 
 
 def _credentials_cross(from_url: str, to_url: str) -> bool:

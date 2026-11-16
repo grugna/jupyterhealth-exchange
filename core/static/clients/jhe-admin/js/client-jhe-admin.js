@@ -2493,6 +2493,8 @@ function readEhrVendorForm() {
     name: document.getElementById("ehrVendorName").value || null,
     ehrClientId: document.getElementById("ehrVendorEhrClientId").value || null,
     supportedScopes: readEhrVendorScopeCheckboxes() || null,
+    skipTypeChecklist: document.getElementById("ehrVendorSkipTypeChecklist").checked,
+    extraScopes: document.getElementById("ehrVendorExtraScopes").value.trim().split(/\s+/).filter(Boolean).join(" "),
   };
 }
 
