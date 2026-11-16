@@ -42,8 +42,15 @@ if not SECRET_KEY:
         )
     SECRET_KEY = get_random_secret_key()
 
+
+def env_flag(name: str) -> bool:
+    """A boolean from the environment: 1, true, yes or on (any case) is true; unset, empty or
+    anything else is false. `bool(os.getenv(...))` made `DEBUG=false` true."""
+    return os.getenv(name, "").strip().lower() in ("1", "true", "yes", "on")
+
+
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = bool(os.getenv("DEBUG"))
+DEBUG = env_flag("DEBUG")
 
 SITE_URL = os.getenv("SITE_URL", "http://localhost:8000").rstrip("/")
 OAUTH2_CALLBACK_PATH = "/auth/callback"
@@ -77,6 +84,14 @@ CSRF_TRUSTED_ORIGINS = [SITE_URL]
 # https://stackoverflow.com/questions/62047354/build-absolute-uri-with-https-behind-reverse-proxy
 USE_X_FORWARDED_HOST = True
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+
+# HTTP Strict Transport Security, sent by SecurityMiddleware on HTTPS responses only. Off (0)
+# unless a deployment sets it; a deployment behind an HTTPS-only load balancer sets
+# SECURE_HSTS_SECONDS=31536000. Subdomains are included only when asked, since the value also
+# binds every other host under the domain.
+SECURE_HSTS_SECONDS = int(os.getenv("SECURE_HSTS_SECONDS", "0"))
+SECURE_HSTS_INCLUDE_SUBDOMAINS = os.getenv("SECURE_HSTS_INCLUDE_SUBDOMAINS", "").strip().lower() in ("1", "true", "yes")
+SECURE_HSTS_PRELOAD = False
 
 
 # uscdi-patient-access
@@ -218,6 +233,9 @@ REST_FRAMEWORK = {
 }
 
 MIDDLEWARE = [
+    # GET /health, first: no database, no auth, and no Host check, so a load balancer's probe
+    # (which carries the task's own IP as the Host) is answered before anything else runs.
+    "core.middleware.HealthCheckMiddleware",
     "whitenoise.middleware.WhiteNoiseMiddleware",
     # Permissive CORS for /o/ so browser-based OAuth clients (e.g. the
     # tests/patient-access-client demo on another origin) can read the token
@@ -314,7 +332,8 @@ LOGGING = {
 
 # https://django-oauth-toolkit.readthedocs.io/en/latest/getting_started.html
 AUTH_USER_MODEL = "core.JheUser"
-REGISTRATION_INVITE_CODE = os.getenv("REGISTRATION_INVITE_CODE")
+# The registration invite code is the JheSetting `site.registration_invite_code`, read by
+# core.forms.UserRegistrationForm; registration is closed until an admin sets it.
 
 # LOGIN_URL = '/admin/login/' for staff accounts
 LOGIN_URL = "/accounts/login/"
@@ -345,11 +364,22 @@ EMAIL_PORT = int(os.getenv("SMTP_PORT", 587))
 EMAIL_USE_TLS = True
 DEFAULT_FROM_EMAIL = "support@jhe.org"
 
-EMAIL_BACKEND = (
-    "django.core.mail.backends.console.EmailBackend"
-    if not EMAIL_HOST
-    else "django.core.mail.backends.smtp.EmailBackend"
-)
+
+def email_backend(smtp_host: str | None, debug: bool) -> str:
+    """SMTP when a relay is configured. Without one, the console backend in development, where
+    seeing the verification link in the log is the point; anywhere else the dummy backend,
+    which drops mail: the console backend would print every message, recipient address and
+    links included, into a production log."""
+    if smtp_host:
+        return "django.core.mail.backends.smtp.EmailBackend"
+    if debug:
+        return "django.core.mail.backends.console.EmailBackend"
+    return "django.core.mail.backends.dummy.EmailBackend"
+
+
+EMAIL_BACKEND = email_backend(EMAIL_HOST, DEBUG)
+if EMAIL_BACKEND.endswith("dummy.EmailBackend"):
+    logging.warning("SMTP_HOST unset: outgoing mail (verification, invitations, one-time codes) is dropped.")
 
 # Password validation
 # https://docs.djangoproject.com/en/5.0/ref/settings/#auth-password-validators
