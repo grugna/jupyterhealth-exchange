@@ -84,7 +84,8 @@ def import_brands_bundle(bundle, vendor_name=None):
     {"brands": n, "locations": m}.
 
     `vendor_name` is the EhrVendor row every brand in the bundle is filed under (created when
-    missing, without a client id). None keeps the Epic rule below.
+    missing, without a client id, and with the sign-in settings EhrVendor.DEFAULTS_BY_NAME holds
+    for that name, if any). None keeps the Epic rule below.
     """
     resources = [e.get("resource", {}) for e in bundle.get("entry", []) or []]
     endpoints = {}
@@ -115,7 +116,9 @@ def import_brands_bundle(bundle, vendor_name=None):
             name = "Epic Sandbox" if "sandbox" in (org.get("name") or "").lower() else "Epic Production"
         if name not in vendor_cache:
             # Defaults on create only: an operator's edits via the EHRs admin page survive a re-import.
-            vendor_cache[name], _ = EhrVendor.objects.get_or_create(name=name, defaults=EhrVendor.EPIC_DEFAULTS)
+            # They follow the row's name, so a vendor named with --vendor never takes Epic's.
+            defaults = EhrVendor.DEFAULTS_BY_NAME.get(name, {})
+            vendor_cache[name], _ = EhrVendor.objects.get_or_create(name=name, defaults=defaults)
         return vendor_cache[name]
 
     brand_by_org_id = {}  # source Organization id -> EhrBrand

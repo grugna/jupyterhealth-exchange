@@ -43,6 +43,18 @@ class EhrVendor(models.Model):
     # sign-in scope JHE has always sent Epic. The 0053 migration sets these on existing Epic rows;
     # import_ehr_brands sets them on the Epic rows it creates.
     EPIC_DEFAULTS = {"skip_type_checklist": True, "extra_scopes": "profile"}
+    # What it needs set on an Oracle Health (Cerner Millennium) row: Millennium serves a document's
+    # content only to a token that also carries patient/Binary.read. The 0054 migration sets it on
+    # existing Oracle Health rows; import_ehr_brands sets it on the ones it creates.
+    ORACLE_HEALTH_DEFAULTS = {"extra_scopes": "patient/Binary.read"}
+    # The settings import_ehr_brands gives a row it creates, by the row's name. A row under any
+    # other name starts with none, and an operator sets them in the EHRs admin page.
+    DEFAULTS_BY_NAME = {
+        "Epic Sandbox": EPIC_DEFAULTS,
+        "Epic Production": EPIC_DEFAULTS,
+        "Oracle Health Sandbox": ORACLE_HEALTH_DEFAULTS,
+        "Oracle Health Production": ORACLE_HEALTH_DEFAULTS,
+    }
 
     name = models.CharField(unique=True)
     ehr_client_id = models.CharField(null=True, blank=True)

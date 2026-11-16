@@ -215,6 +215,22 @@ def test_a_named_vendor_reuses_the_row_and_keeps_its_client_id(db):
     assert vendor.ehr_client_id == "registered-client" and vendor.brands.count() == 1
 
 
+def test_a_named_vendor_does_not_get_epics_sign_in_settings(db):
+    import_brands_bundle(_endpoint_per_organization_bundle(), vendor_name="Some Other EHR")
+    vendor = EhrVendor.objects.get()
+    assert vendor.skip_type_checklist is False and vendor.extra_scopes == ""
+
+
+def test_a_new_oracle_health_row_gets_binary_read_and_a_reimport_keeps_an_operators_edits(db):
+    import_brands_bundle(_endpoint_per_organization_bundle(), vendor_name="Oracle Health Production")
+    vendor = EhrVendor.objects.get()
+    assert vendor.skip_type_checklist is False and vendor.extra_scopes == "patient/Binary.read"
+
+    EhrVendor.objects.update(extra_scopes="")
+    import_brands_bundle(_endpoint_per_organization_bundle(), vendor_name="Oracle Health Production")
+    assert EhrVendor.objects.get().extra_scopes == ""
+
+
 def test_call_command_takes_the_vendor(db, tmp_path):
     path = tmp_path / "brands.json"
     path.write_text(json.dumps(_endpoint_per_organization_bundle()))
