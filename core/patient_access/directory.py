@@ -29,8 +29,8 @@ from patient_access.core.vocab import TypeChoice
 # also lets a hosted dev server use the SMART sandbox by seeding the row.
 VENDOR_KEYS: Mapping[str, VendorKey] = MappingProxyType(
     {
-        "Epic Sandbox": VendorKey.EPIC,
-        "Epic Production": VendorKey.EPIC,
+        EhrVendor.EPIC_SANDBOX: VendorKey.EPIC,
+        EhrVendor.EPIC_PRODUCTION: VendorKey.EPIC,
         "SMART Sandbox": VendorKey.SMART_REFERENCE,  # dev only: seed_patient_access_sandbox
     }
 )

@@ -267,17 +267,20 @@ def ensure_admin_ui_application() -> list[str]:
     return [ADMIN_UI_APPLICATION]
 
 
-EHR_VENDORS = ["Epic Sandbox", "Epic Production"]
+EHR_VENDORS = [EhrVendor.EPIC_SANDBOX, EhrVendor.EPIC_PRODUCTION]
 
 
 def ensure_ehr_vendors() -> list[str]:
     """The vendor rows the patient-portal connect flow is configured on, with no credentials:
     the client id is the deployment's own EHR app registration, entered on the EHRs page.
-    Brands and locations come from `import_ehr_brands` with the vendor's published bundle."""
+    Brands and locations come from `import_ehr_brands` with the vendor's published bundle. A
+    row is created with its vendor's sign-in settings (EhrVendor.DEFAULTS_BY_NAME): the import
+    that follows finds the row and leaves it as it is."""
     created = []
     for name in EHR_VENDORS:
         _, was_created = EhrVendor.objects.get_or_create(
-            name=name, defaults={"supported_scopes": " ".join(EhrVendor.SUPPORTED_SCOPES)}
+            name=name,
+            defaults={"supported_scopes": " ".join(EhrVendor.SUPPORTED_SCOPES), **EhrVendor.defaults_for(name)},
         )
         if was_created:
             created.append(name)
