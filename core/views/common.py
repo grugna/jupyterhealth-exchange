@@ -22,6 +22,7 @@ from oauth2_provider.models import get_access_token_model
 from oauth2_provider.views import TokenView
 from oauthlib.common import Request
 
+from core.adapters import SSO_REQUIRED_MESSAGE, sso_required_for
 from core.auth import IdTokenError, JheOAuth2Validator, account_activation_token, parse_fhir_user, verify_id_token
 from core.models import Practitioner
 from core.services.jhe_settings import get_setting
@@ -64,6 +65,14 @@ class LoginView(BaseLoginView):
 
     def post(self, request, *args, **kwargs):
         return super().post(request, *args, **kwargs)
+
+    def form_valid(self, form):
+        # With auth.sso.required_for_practitioners on, the password is right but not enough:
+        # practitioners, staff and superusers sign in through SSO only.
+        if sso_required_for(form.get_user()):
+            form.add_error(None, SSO_REQUIRED_MESSAGE)
+            return self.form_invalid(form)
+        return super().form_valid(form)
 
 
 def _patient_access_otp_redirect(request):
@@ -144,7 +153,15 @@ def signup(request):
     if request.method == "POST":
         next = request.GET.get("next")
         form = UserRegistrationForm(request.POST)
-        if form.is_valid():
+        if (
+            form.is_valid()
+            and (form.cleaned_data.get("user_type") or "practitioner") != "patient"
+            and get_setting("auth.sso.required_for_practitioners", False)
+        ):
+            # Practitioner accounts come in through SSO only; a password sign-up would mint one that
+            # the login form then refuses.
+            form.add_error(None, SSO_REQUIRED_MESSAGE)
+        elif form.is_valid():
             user = form.save(commit=False)
             password = form.cleaned_data.get("password")
             # Get user type from form, default to 'practitioner' if not set

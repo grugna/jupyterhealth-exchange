@@ -32,6 +32,18 @@ def site_base_url(value: object) -> None:
         raise ValueError("must not end with a slash")
 
 
+def cidr_list(value: object) -> None:
+    """Blank (no restriction) or CIDR blocks / addresses separated by commas or spaces."""
+    from core.middleware import parse_networks
+
+    if not isinstance(value, str):
+        raise ValueError("must be text")
+    try:
+        parse_networks(value)
+    except ValueError as e:
+        raise ValueError(f"has an entry that is not an IP address or CIDR block ({e})") from None
+
+
 CORE_SETTINGS: tuple[SettingSpec, ...] = (
     SettingSpec(
         key="site.url",
@@ -39,6 +51,27 @@ CORE_SETTINGS: tuple[SettingSpec, ...] = (
         help="Public base URL of this deployment; invitation links, emails and OAuth redirect URIs are built on it.",
         example="https://jhe.example.org",
         validate=site_base_url,
+    ),
+    SettingSpec(
+        key="auth.sso.required_for_practitioners",
+        value_type=SettingValueType.BOOL,
+        help=(
+            "When on, practitioners, staff and superusers can sign in only through SAML SSO; the password and "
+            "email-code forms refuse them. Patients are unaffected. Turn it on after each practitioner has "
+            "signed in through SSO once."
+        ),
+        example="true",
+    ),
+    SettingSpec(
+        key="auth.admin.allowed_cidrs",
+        value_type=SettingValueType.STRING,
+        help=(
+            "Networks allowed to reach /admin/ (the Django admin, login included), as CIDR blocks separated by "
+            "commas or spaces. Empty means no restriction. If you lock yourself out, set it from the JHE admin "
+            "portal or manage.py shell."
+        ),
+        example="203.0.113.0/24, 198.51.100.7",
+        validate=cidr_list,
     ),
     SettingSpec(
         key="auth.patient.invitation_expiration_days",
