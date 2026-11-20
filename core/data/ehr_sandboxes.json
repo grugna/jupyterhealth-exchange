@@ -32,6 +32,22 @@
       "city": "Watertown",
       "state": "MA",
       "note": "developer.api.athena.io: Certified APIs only, 3-Legged OAuth for Patients, Browser app type, PKCE, Preview environment."
+    },
+    {
+      "vendor": "Altera Sandbox",
+      "brand": "Altera Sunrise Sandbox",
+      "fhir_base_url": "https://sunrise-fhir-r4.adpsandbox.ahcentral.com/R4/open-Prod/USCore6.1",
+      "city": "Chicago",
+      "state": "IL",
+      "note": "developer.adp.ahcentral.com FHIR App (public client, Test Only). Patient test logins come from the portal Support Widget. Two brands share the one vendor row."
+    },
+    {
+      "vendor": "Altera Sandbox",
+      "brand": "Altera TouchWorks Sandbox",
+      "fhir_base_url": "https://tw-fhir-r4.adpsandbox.ahcentral.com/R4/open-R4",
+      "city": "Chicago",
+      "state": "IL",
+      "note": "developer.adp.ahcentral.com FHIR App (public client, Test Only). Patient test logins come from the portal Support Widget. Two brands share the one vendor row."
     }
   ]
 }

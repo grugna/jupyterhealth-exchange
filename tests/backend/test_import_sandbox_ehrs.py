@@ -22,7 +22,13 @@ def _run(*args):
 
 
 def test_file_lists_every_vendor_once_with_a_unique_url():
-    assert NAMES == {"Epic Sandbox", "Oracle Health Sandbox", "eClinicalWorks Sandbox", "athenahealth Sandbox"}
+    assert NAMES == {
+        "Epic Sandbox",
+        "Oracle Health Sandbox",
+        "eClinicalWorks Sandbox",
+        "athenahealth Sandbox",
+        "Altera Sandbox",
+    }
     assert len({e["fhir_base_url"] for e in ENTRIES}) == len(ENTRIES)
     assert not any("client_id" in e for e in ENTRIES)  # client ids are per deployment, never committed
 
