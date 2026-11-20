@@ -9,7 +9,7 @@ from django.utils.translation import gettext_lazy as _
 
 from core.services.jhe_settings import get_setting
 
-SSO_REQUIRED_MESSAGE = _("Practitioners sign in with University SSO. Use the SSO button.")
+SSO_REQUIRED_MESSAGE = _('Practitioners sign in with SAML2. Use the "Continue with SAML2" button.')
 
 
 def sso_required_for(user):

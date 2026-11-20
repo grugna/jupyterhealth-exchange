@@ -49,7 +49,7 @@ def test_password_login_refused_for_practitioners_when_enforced(client, kw):
     make("p@example.org", **kw)
     set_setting("auth.sso.required_for_practitioners", "bool", True)
     response = login(client, "p@example.org")
-    assert response.status_code == 200 and b"University SSO" in response.content
+    assert response.status_code == 200 and b"Continue with SAML2" in response.content
     assert "_auth_user_id" not in client.session
 
 
