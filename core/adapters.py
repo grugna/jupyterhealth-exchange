@@ -13,11 +13,12 @@ SSO_REQUIRED_MESSAGE = _('Practitioners sign in with SAML2. Use the "Continue wi
 
 
 def sso_required_for(user):
-    """True when `auth.sso.required_for_practitioners` is on and `user` is a practitioner, staff or
-    superuser, who may then sign in only through the SAML IdP. Patients are never affected."""
+    """True when SSO-only is active and `user` is a practitioner, staff or superuser, who may then
+    sign in only through the SAML IdP. Patients are never affected."""
+    from core.context_processors import sso_only_active
+
     return bool(
-        get_setting("auth.sso.required_for_practitioners", False)
-        and (user.is_staff or user.is_superuser or (user.is_practitioner() and not user.is_patient()))
+        sso_only_active() and (user.is_staff or user.is_superuser or (user.is_practitioner() and not user.is_patient()))
     )
 
 

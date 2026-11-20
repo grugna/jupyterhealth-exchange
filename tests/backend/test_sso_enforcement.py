@@ -28,6 +28,22 @@ def clear_cache():
     cache.clear()
 
 
+@pytest.fixture
+def sso_only(db):
+    """SSO-only switched on, with a working SAML application (the switch needs one to take effect)."""
+    from allauth.socialaccount.models import SocialApp
+
+    SocialApp.objects.create(
+        provider="saml",
+        provider_id="uchicago",
+        name="UChicago",
+        client_id="uchicago",
+        settings={"idp": {"entity_id": "x", "sso_url": "https://idp.example.org/sso", "x509cert": "x"}},
+    )
+    set_setting("auth.sso.saml2", "int", 1)
+    set_setting("auth.sso.required_for_practitioners", "bool", True)
+
+
 def make(email, **kw):
     return JheUser.objects.create_user(email=email, password="testpass123", **kw)
 
@@ -36,7 +52,6 @@ def login(client, email):
     return client.post(reverse("login"), {"username": email, "password": "testpass123"})
 
 
-@pytest.mark.django_db
 @pytest.mark.parametrize(
     "kw",
     [
@@ -45,11 +60,10 @@ def login(client, email):
         {"user_type": "practitioner", "is_staff": True, "is_superuser": True},
     ],
 )
-def test_password_login_refused_for_practitioners_when_enforced(client, kw):
+def test_password_login_closed_when_sso_only(client, sso_only, kw):
     make("p@example.org", **kw)
-    set_setting("auth.sso.required_for_practitioners", "bool", True)
     response = login(client, "p@example.org")
-    assert response.status_code == 200 and b"Continue with SAML2" in response.content
+    assert response.status_code == 403
     assert "_auth_user_id" not in client.session
 
 
@@ -61,11 +75,28 @@ def test_password_login_works_when_not_enforced(client):
 
 
 @pytest.mark.django_db
-def test_patients_are_not_affected(client):
-    make("pt@example.org", user_type="patient")
-    set_setting("auth.sso.required_for_practitioners", "bool", True)
-    login(client, "pt@example.org")
-    assert "_auth_user_id" in client.session
+def test_setting_without_a_working_saml_app_does_not_lock_everyone_out(client):
+    make("p@example.org", user_type="practitioner")
+    set_setting("auth.sso.required_for_practitioners", "bool", True)  # no SocialApp, saml2 switch off
+    assert login(client, "p@example.org").status_code == 302
+    assert b'<input name="username"' in client.get(reverse("login")).content
+
+
+def test_login_page_shows_only_the_saml_button_when_sso_only(client, sso_only):
+    page = client.get(reverse("login")).content
+    assert b"Continue with SAML2" in page
+    assert b'<input name="username"' not in page and b"Sign Up" not in page and b"Forgot Password" not in page
+
+
+def test_signup_closed_when_sso_only(client, sso_only):
+    before = JheUser.objects.count()
+    for method in (client.get, client.post):
+        assert method(reverse("signup")).status_code == 403
+    assert JheUser.objects.count() == before
+
+
+def test_signup_page_open_when_not_enforced(client, db):
+    assert client.get(reverse("signup")).status_code == 200
 
 
 def _admin_get(client, ip, xff=None):
@@ -117,25 +148,16 @@ def test_cidr_setting_is_validated():
 
 
 @pytest.mark.django_db
-def test_otp_login_refused_for_practitioners_when_enforced(client):
+def test_otp_login_refused_for_practitioners_when_sso_only(client, sso_only):
     from allauth.account.adapter import get_adapter
     from django.contrib.messages.storage.fallback import FallbackStorage
 
     user = make("p@example.org", user_type="practitioner")
-    set_setting("auth.sso.required_for_practitioners", "bool", True)
+    patient = make("pt@example.org", user_type="patient")
     request = RequestFactory().get("/")
     request.session = {}
     request._messages = FallbackStorage(request)
     kw = dict(email_verification="none", email=None, signup=False, redirect_url=None)
-    refused = get_adapter().pre_login(request, user, signal_kwargs=None, **kw)
-    assert refused.status_code == 302
-    sso = get_adapter().pre_login(request, user, signal_kwargs={"sociallogin": object()}, **kw)
-    assert sso is None
-
-
-@pytest.mark.django_db
-def test_practitioner_signup_refused_when_enforced(client):
-    set_setting("auth.sso.required_for_practitioners", "bool", True)
-    before = JheUser.objects.count()
-    client.post(reverse("signup"), {"email": "n@example.org", "password": "Passw0rd!x1", "user_type": "practitioner"})
-    assert JheUser.objects.count() == before
+    assert get_adapter().pre_login(request, user, signal_kwargs=None, **kw).status_code == 302
+    assert get_adapter().pre_login(request, user, signal_kwargs={"sociallogin": object()}, **kw) is None
+    assert get_adapter().pre_login(request, patient, signal_kwargs=None, **kw) is None
