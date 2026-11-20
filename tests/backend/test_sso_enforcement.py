@@ -88,6 +88,15 @@ def test_login_page_shows_only_the_saml_button_when_sso_only(client, sso_only):
     assert b'<input name="username"' not in page and b"Sign Up" not in page and b"Forgot Password" not in page
 
 
+def test_home_page_has_no_signup_button_when_sso_only(client, sso_only):
+    page = client.get("/").content
+    assert b"Log In" in page and b"Sign Up" not in page
+
+
+def test_home_page_shows_signup_button_when_not_enforced(client, db):
+    assert b"Sign Up" in client.get("/").content
+
+
 def test_signup_closed_when_sso_only(client, sso_only):
     before = JheUser.objects.count()
     for method in (client.get, client.post):
