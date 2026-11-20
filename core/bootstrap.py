@@ -53,6 +53,7 @@ def ensure_settings() -> list[str]:
         ("auth.sso.valid_domains", "string", ""),
         ("auth.sso.required_for_practitioners", "bool", False),
         ("auth.admin.allowed_cidrs", "string", ""),
+        ("auth.practitioner_clients.allowed_emails", "string", ""),
         ("auth.patient.invitation_expiration_days", "int", 7),
         ("auth.patient.invitation_redemption_window_hours", "int", 12),
         ("auth.patient_access_clients", "json", []),
