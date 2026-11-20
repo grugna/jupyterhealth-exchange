@@ -246,8 +246,10 @@ MIDDLEWARE = [
     # response. Outermost so it sets headers on every /o/ response.
     "core.middleware.OAuthCorsMiddleware",
     "django.middleware.security.SecurityMiddleware",
-    # /admin/ only from the networks in the auth.admin.allowed_cidrs setting (empty = anywhere).
+    # /admin/ and the settings API only from the networks in auth.admin.allowed_cidrs (empty = anywhere).
     "core.middleware.AdminIpAllowlistMiddleware",
+    # While SSO-only is on: no sign-up and no password reset.
+    "core.middleware.SsoOnlyClosedPathsMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",

@@ -66,7 +66,19 @@ class OAuthCorsMiddleware:
         return response
 
 
-ADMIN_PATH = "/admin/"
+# Reachable only from `auth.admin.allowed_cidrs`: the Django admin, and the settings API (it edits the
+# allowlist itself and the SSO switches). The rest of the site, the JHE admin portal included, is
+# gated by SSO login, not by network.
+RESTRICTED_PREFIXES = ("/admin/", "/api/v1/jhe_settings")
+
+# Closed while SSO-only is active: account creation and password recovery by email have no use
+# when practitioners sign in through SSO and patients by invitation.
+SSO_ONLY_CLOSED_PREFIXES = (
+    "/allauth/signup/",
+    "/allauth/password/reset/",
+    "/accounts/password_reset/",
+    "/accounts/reset/",
+)
 
 
 def client_ip(request, proxy_hops=None):
@@ -93,10 +105,11 @@ def parse_networks(value):
 
 
 class AdminIpAllowlistMiddleware:
-    """Restrict /admin/ (the Django admin, login included) to the networks in `auth.admin.allowed_cidrs`.
+    """Restrict /admin/ (the Django admin, login included) and the settings API to the networks in
+    `auth.admin.allowed_cidrs`.
 
     Empty means no restriction. When set, a client outside every listed block gets 403 before the
-    admin runs, whether or not it holds a session, so a stolen session or password is no use
+    view runs, whether or not it holds a session, so a stolen session or password is no use
     from elsewhere. The rest of the site is untouched. Fails closed: an address that cannot be
     read from the request is refused, and a value with no usable block refuses everyone (the
     setting's validator keeps that from being saved). To get back in after a bad value, set the
@@ -107,7 +120,7 @@ class AdminIpAllowlistMiddleware:
         self.get_response = get_response
 
     def __call__(self, request):
-        if request.path.startswith(ADMIN_PATH):
+        if request.path.startswith(RESTRICTED_PREFIXES):
             allowed = (get_setting("auth.admin.allowed_cidrs", "") or "").strip()
             if allowed:
                 ip = client_ip(request)
@@ -119,4 +132,21 @@ class AdminIpAllowlistMiddleware:
                         continue
                 if ip is None or not any(ip.version == n.version and ip in n for n in networks):
                     return HttpResponseForbidden("The admin site is not available from this network.")
+        return self.get_response(request)
+
+
+class SsoOnlyClosedPathsMiddleware:
+    """While SSO-only is active (core.context_processors.sso_only_active), answer 403 for the
+    allauth sign-up and the password-reset routes. Anyone could otherwise create an account at
+    /allauth/signup/ with no invite code, and reset flows confirm which emails exist."""
+
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        if request.path.startswith(SSO_ONLY_CLOSED_PREFIXES):
+            from core.context_processors import sso_only_active
+
+            if sso_only_active():
+                return HttpResponseForbidden("Not available: sign in with SAML2.")
         return self.get_response(request)

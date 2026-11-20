@@ -128,6 +128,14 @@ def test_admin_allowlist_ignores_forged_forwarded_entries(client):
 
 
 @pytest.mark.django_db
+def test_allowlist_covers_the_settings_api_too(client):
+    set_setting("auth.admin.allowed_cidrs", "string", "203.0.113.0/24")
+    assert client.get("/api/v1/jhe_settings", HTTP_X_FORWARDED_FOR="8.8.8.8").status_code == 403
+    assert client.get("/api/v1/jhe_settings/1", HTTP_X_FORWARDED_FOR="8.8.8.8").status_code == 403
+    assert client.get("/api/v1/jhe_settings", HTTP_X_FORWARDED_FOR="203.0.113.5").status_code != 403
+
+
+@pytest.mark.django_db
 def test_allowlist_covers_only_admin(client):
     set_setting("auth.admin.allowed_cidrs", "string", "203.0.113.0/24")
     assert client.get("/health", REMOTE_ADDR="8.8.8.8").status_code == 200
@@ -161,3 +169,24 @@ def test_otp_login_refused_for_practitioners_when_sso_only(client, sso_only):
     assert get_adapter().pre_login(request, user, signal_kwargs=None, **kw).status_code == 302
     assert get_adapter().pre_login(request, user, signal_kwargs={"sociallogin": object()}, **kw) is None
     assert get_adapter().pre_login(request, patient, signal_kwargs=None, **kw) is None
+
+
+@pytest.mark.parametrize(
+    "path",
+    ["/allauth/signup/", "/allauth/password/reset/", "/accounts/password_reset/", "/accounts/reset/x/y/"],
+)
+def test_signup_and_password_reset_routes_closed_when_sso_only(client, sso_only, path):
+    assert client.get(path).status_code == 403
+
+
+@pytest.mark.django_db
+def test_allauth_signup_cannot_create_accounts_when_sso_only(client, sso_only):
+    before = JheUser.objects.count()
+    client.post("/allauth/signup/", {"email": "new@example.org", "password1": "Zx9!kqpLm2", "password2": "Zx9!kqpLm2"})
+    assert JheUser.objects.count() == before
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize("path", ["/allauth/signup/", "/allauth/password/reset/", "/accounts/password_reset/"])
+def test_signup_and_password_reset_routes_open_when_not_enforced(client, path):
+    assert client.get(path).status_code == 200

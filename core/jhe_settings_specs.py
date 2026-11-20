@@ -66,9 +66,9 @@ CORE_SETTINGS: tuple[SettingSpec, ...] = (
         key="auth.admin.allowed_cidrs",
         value_type=SettingValueType.STRING,
         help=(
-            "Networks allowed to reach /admin/ (the Django admin, login included), as CIDR blocks separated by "
-            "commas or spaces. Empty means no restriction. If you lock yourself out, set it from the JHE admin "
-            "portal or manage.py shell."
+            "Networks allowed to reach /admin/ (the Django admin, login included) and the settings API, as CIDR "
+            "blocks separated by commas or spaces. Empty means no restriction. If you lock yourself out, set "
+            "it with manage.py shell."
         ),
         example="203.0.113.0/24, 198.51.100.7",
         validate=cidr_list,
