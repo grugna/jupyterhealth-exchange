@@ -39,16 +39,21 @@ All JSON; `Authorization: Bearer <access token>` after the first call.
 | create | `POST /api/v1/patients` with `{"organization_id": n, "telecom_email": "<e-mail>"}` | `organization_id` links the patient to the organization at creation; the caller needs `patient.manage_for_organization` in it |
 | link | `POST /api/v1/invitation` with `{"patient_id": id, "client_id": <client database id>}` | the answer carries `invitationLink` (and `token`); the client must have an invitation URL |
 
-An invitation is issued for the link's lifetime (`auth.patient.invitation_expiration_days`,
-default 7) and is single-use; the patient redeems it by opening the link.
+A link is valid for `auth.patient.invitation_expiration_days` (default 7) from the moment it
+is created, and once redeemed it keeps working for `auth.patient.invitation_redemption_window_hours`
+(default 12) so a page reload does not strand the patient.
 
 ## Things to know
 
-- **Invitation creation does not check the caller's role or organization.** Any signed-in user
-  can create an invitation for any patient id. The `member` role therefore limits what the
-  service account can do to *patients* (create, look up, add to an organization), not to
-  invitations. Treat its key as able to invite any patient, and keep the account's role and
-  organization as narrow as the integration allows.
+- **Invitations are limited to the patient's care team.** `POST /api/v1/invitation` is allowed
+  for a superuser, or a practitioner whose role in one of the patient's organizations carries
+  `patient.manage_for_organization` (`manager`, `member`); anything else is a 403 (a patient id
+  that does not exist answers the same). Listing, reading and deleting invitations are scoped
+  the same way (other ids are a 404), and PUT/PATCH are not allowed. So the service account,
+  a `member` of one organization, can invite only patients in that organization.
+- **A new invitation replaces the previous one.** Issuing an invitation marks the patient's
+  earlier issued invitation for that client `reissued`, and opening a reissued link fails. If a
+  system asks for two links in quick succession, only the later one works.
 - **Keys bypass SAML and the network allowlist.** A key is a client-credentials grant: it does
   not sign in through the SAML button, and `auth.admin.allowed_cidrs` limits only `/admin/` and the
   settings API, not `/o/token/` or `/api/v1/*`.
