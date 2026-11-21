@@ -14,7 +14,7 @@ from rest_framework.viewsets import ModelViewSet
 from core.context_processors import DEFAULT_LOGO
 from core.models import Patient, PatientInvitation, Study
 from core.models.patient_invitation import InvitationCancelled, InvitationConflict, InvitationExpired
-from core.permissions import can_manage_patient
+from core.permissions import can_manage_patient, patients_manageable_by
 from core.serializers import PatientInvitationSerializer
 from core.services.jhe_settings import get_setting
 
@@ -35,8 +35,12 @@ class PatientInvitationViewSet(ModelViewSet):
             return [AllowAny()]
         return super().get_permissions()
 
+    # No PUT or PATCH: nothing edits an invitation (its status changes by redeeming, reissuing or expiring).
+    http_method_names = ["get", "post", "delete", "head", "options"]
+
     def get_queryset(self):
-        return PatientInvitation.objects.all()
+        # Only the invitations of patients the caller may manage; any other id is a 404.
+        return PatientInvitation.objects.filter(patient__in=patients_manageable_by(self.request.user))
 
     def create(self, request, *args, **kwargs):
         patient_id = request.data.get("patient_id")

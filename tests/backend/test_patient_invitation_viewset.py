@@ -140,3 +140,43 @@ def test_a_refused_invitation_creates_nothing(organization, patient):
 
     _invite_as(_practitioner("v2@example.org"), patient, "viewer", organization)
     assert PatientInvitation.objects.count() == 0
+
+
+def test_list_read_and_delete_reach_only_the_invitations_of_patients_the_caller_manages(organization, patient):
+    from rest_framework.test import APIClient
+
+    from core.models import Organization, PatientInvitation, PractitionerOrganization
+
+    app = Application.objects.create(
+        name="c",
+        user=_practitioner("owner@example.org"),
+        client_type=Application.CLIENT_PUBLIC,
+        authorization_grant_type=Application.GRANT_AUTHORIZATION_CODE,
+    )
+    invitation = PatientInvitation.issue(patient, app)
+
+    def as_user(email, role=None, org=None):
+        who = _practitioner(email)
+        if role:
+            PractitionerOrganization.objects.create(practitioner=who.practitioner, organization=org, role=role)
+        client = APIClient()
+        client.default_format = "json"
+        client.force_authenticate(who)
+        return client
+
+    other = Organization.objects.create(name="Other Org", type="other")
+    for outsider in (
+        as_user("a@example.org"),
+        as_user("b@example.org", "manager", other),
+        as_user("c@example.org", "viewer", organization),
+    ):
+        assert outsider.get("/api/v1/invitation").json()["results"] == []
+        assert outsider.get(f"/api/v1/invitation/{invitation.id}").status_code == 404
+        assert outsider.delete(f"/api/v1/invitation/{invitation.id}").status_code == 404
+    assert PatientInvitation.objects.filter(id=invitation.id).exists()
+
+    member = as_user("d@example.org", "member", organization)
+    assert [i["id"] for i in member.get("/api/v1/invitation").json()["results"]] == [invitation.id]
+    assert member.get(f"/api/v1/invitation/{invitation.id}").status_code == 200
+    assert member.patch(f"/api/v1/invitation/{invitation.id}", {"status": "issued"}).status_code == 405
+    assert member.delete(f"/api/v1/invitation/{invitation.id}").status_code == 204

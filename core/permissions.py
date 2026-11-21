@@ -88,6 +88,20 @@ def can_manage_patient(user, patient):
     )
 
 
+def patients_manageable_by(user):
+    """The Patient rows `can_manage_patient` is true for, as a queryset (all of them for a superuser)."""
+    from core.models import Patient, PractitionerOrganization
+
+    if user.is_superuser:
+        return Patient.objects.all()
+    organization_ids = [
+        link.organization_id
+        for link in PractitionerOrganization.objects.filter(practitioner__jhe_user=user)
+        if role_permits(link.role, "patient.manage_for_organization")
+    ]
+    return Patient.objects.filter(organizations__id__in=organization_ids).distinct()
+
+
 class IsOrganizationMember(permissions.IsAuthenticated):
     """Any role (including viewer) in the organization named by the `pk` URL kwarg, or a
     superuser. For read actions -- OrganizationViewSet's `tree` and `studies` -- where the
