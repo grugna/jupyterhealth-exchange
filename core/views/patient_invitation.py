@@ -6,7 +6,7 @@ from django.urls import reverse
 from oauth2_provider.models import get_application_model
 from rest_framework import status
 from rest_framework.decorators import action
-from rest_framework.exceptions import NotFound, ValidationError
+from rest_framework.exceptions import NotFound, PermissionDenied, ValidationError
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.viewsets import ModelViewSet
@@ -14,6 +14,7 @@ from rest_framework.viewsets import ModelViewSet
 from core.context_processors import DEFAULT_LOGO
 from core.models import Patient, PatientInvitation, Study
 from core.models.patient_invitation import InvitationCancelled, InvitationConflict, InvitationExpired
+from core.permissions import can_manage_patient
 from core.serializers import PatientInvitationSerializer
 from core.services.jhe_settings import get_setting
 
@@ -50,7 +51,12 @@ class PatientInvitationViewSet(ModelViewSet):
         if errors:
             raise ValidationError(errors)
 
-        patient = get_object_or_404(Patient, id=patient_id)
+        # An invitation link signs whoever opens it in as the patient, so it is issued only by someone
+        # who may manage that patient (see can_manage_patient). A patient that does not exist answers
+        # the same as one the caller may not manage, so the endpoint does not reveal which ids exist.
+        patient = Patient.objects.filter(id=patient_id).first()
+        if patient is None or not can_manage_patient(request.user, patient):
+            raise PermissionDenied("You are not allowed to invite this patient.")
         client = get_object_or_404(Application, id=client_id)
 
         invitation, link = PatientInvitation.build_link(patient, client)

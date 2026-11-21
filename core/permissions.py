@@ -72,6 +72,22 @@ def user_can(user, organization_id, permission):
     return role_permits(organization_role(user, organization_id), permission)
 
 
+def can_manage_patient(user, patient):
+    """Whether `user` may act for `patient`'s care team: a superuser, or a practitioner whose role in
+    one of the patient's organizations carries "patient.manage_for_organization" (manager, member).
+    The same rule as creating a patient, applied to a patient that already exists; a viewer, a
+    practitioner of another organization and a patient with no organization get no.
+    """
+    if user.is_superuser:
+        return True
+    from core.models import PatientOrganization
+
+    organization_ids = PatientOrganization.objects.filter(patient=patient).values_list("organization_id", flat=True)
+    return any(
+        user_can(user, organization_id, "patient.manage_for_organization") for organization_id in organization_ids
+    )
+
+
 class IsOrganizationMember(permissions.IsAuthenticated):
     """Any role (including viewer) in the organization named by the `pk` URL kwarg, or a
     superuser. For read actions -- OrganizationViewSet's `tree` and `studies` -- where the
